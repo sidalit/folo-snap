@@ -1,0 +1,98 @@
+name: folo
+base: core26
+version: '1.17.0'
+title: Folo
+icon: snap/gui/folo.png
+summary: AI RSS reader for feeds, newsletters, podcasts and social media
+description: |
+  Follow websites, blogs, newsletters, podcasts, videos and social media in
+  one timeline. Folo organizes subscriptions into views for articles,
+  pictures, videos, audio and notifications, and adds AI summaries,
+  translation and search. Feeds sync with your Folo account through the
+  hosted Folo service.
+
+  Sign in through your browser and allow it to reopen Folo. Updates are
+  managed by snapd.
+license: AGPL-3.0-only
+grade: stable
+confinement: strict
+website: https://folo.is
+source-code:
+  - https://github.com/RSSNext/Folo
+  - https://github.com/sidalit/folo-snap
+issues:
+  - https://github.com/RSSNext/Folo/issues
+  - https://github.com/sidalit/folo-snap/issues
+contact: https://github.com/sidalit/folo-snap/issues
+
+platforms:
+  amd64:
+
+apps:
+  folo:
+    command: bin/folo
+    extensions: [gnome]
+    plugs:
+      - audio-playback
+      - browser-support
+      - home
+      - network
+      - removable-media
+      - unity7
+
+parts:
+  pnpm:
+    plugin: nil
+    build-snaps:
+      - node/22/stable
+    override-build: |
+      npm install --global --prefix "$CRAFT_PART_INSTALL" pnpm@12.5.1 corepack@0.36.0
+    prime:
+      - -*
+
+  folo:
+    after: [pnpm]
+    plugin: nil
+    source: https://github.com/RSSNext/Folo.git
+    source-tag: desktop/v$SNAPCRAFT_PROJECT_VERSION
+    source-depth: 1
+    build-snaps:
+      - node/22/stable
+    build-packages:
+      - build-essential
+      - ca-certificates
+      - git
+      - patch
+      - python3
+    stage-packages:
+      - fontconfig
+      - libgbm1
+    build-environment:
+      - COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+      - SKIP_INSTALL_SIMPLE_GIT_HOOKS: '1'
+      - NODE_OPTIONS: --max-old-space-size=6144
+    override-pull: |
+      craftctl default
+      patch -p1 < "$CRAFT_PROJECT_DIR/snap/patches/strict-desktop.patch"
+    override-build: |
+      export PATH="$CRAFT_STAGE/bin:$PATH"
+      pnpm install --frozen-lockfile
+
+      cd apps/desktop
+      # Wayland app ID and window class matching the snap's desktop entry
+      node -e '
+        const fs = require("node:fs");
+        const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+        fs.writeFileSync("package.json", JSON.stringify({ ...pkg, desktopName: "folo_folo.desktop" }, null, 2));
+      '
+      pnpm exec electron-vite build
+      pnpm exec electron-forge package --platform=linux --arch=x64
+
+      mkdir -p "$CRAFT_PART_INSTALL/opt/folo"
+      cp -a out/Folo-linux-x64/. "$CRAFT_PART_INSTALL/opt/folo/"
+      rm "$CRAFT_PART_INSTALL/opt/folo/chrome-sandbox"
+      install -Dm644 ../../LICENSE "$CRAFT_PART_INSTALL/usr/share/doc/folo/LICENSE"
+
+  launcher:
+    plugin: dump
+    source: snap/local

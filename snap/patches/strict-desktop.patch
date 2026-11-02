@@ -1,0 +1,101 @@
+diff --git a/apps/desktop/layer/main/src/env.ts b/apps/desktop/layer/main/src/env.ts
+index 0b9a39a..bdd0cb5 100644
+--- a/apps/desktop/layer/main/src/env.ts
++++ b/apps/desktop/layer/main/src/env.ts
+@@ -12,6 +12,9 @@ export const isWindows = platform === "win32"
+ 
+ export const isLinux = platform === "linux"
+ 
++/** The snap package, whose updates and URL scheme registration snapd manages */
++export const isSnap = !!process.env.SNAP
++
+ /** The temporary profile the end-to-end tests run the app on */
+ export const e2eUserDataDir = process.env.FOLO_E2E_USER_DATA_DIR
+ 
+diff --git a/apps/desktop/layer/main/src/lib/tray.ts b/apps/desktop/layer/main/src/lib/tray.ts
+index a8ae155..e870abf 100644
+--- a/apps/desktop/layer/main/src/lib/tray.ts
++++ b/apps/desktop/layer/main/src/lib/tray.ts
+@@ -1,7 +1,7 @@
+ import { name } from "@pkg"
+ import { app, Menu, nativeImage, Tray } from "electron"
+ 
+-import { isLinux, isMacOS, isMAS, isWindows } from "~/env"
++import { isLinux, isMacOS, isMAS, isSnap, isWindows } from "~/env"
+ import { getTrayIconPath } from "~/helper"
+ import { logger, revealLogFile } from "~/logger"
+ import { WindowManager } from "~/manager/window"
+@@ -53,7 +53,7 @@ const getTrayContextMenu = () => {
+             await revealLogFile()
+           },
+         },
+-        ...(!isMAS
++        ...(!isMAS && !isSnap
+           ? [
+               {
+                 label: t("menu.checkForUpdates"),
+diff --git a/apps/desktop/layer/main/src/manager/app.ts b/apps/desktop/layer/main/src/manager/app.ts
+index 969b580..7a141e9 100644
+--- a/apps/desktop/layer/main/src/manager/app.ts
++++ b/apps/desktop/layer/main/src/manager/app.ts
+@@ -8,7 +8,7 @@ import path from "pathe"
+ 
+ import { WindowManager } from "~/manager/window"
+ 
+-import { isTestRun } from "../env"
++import { isSnap, isTestRun } from "../env"
+ import { getIconPath } from "../helper"
+ import { initializeIpcServices } from "../ipc"
+ import { saveMediaToEagle } from "../ipc/services/integration"
+@@ -72,6 +72,8 @@ class AppManagerStatic {
+   private registerProtocols() {
+     // The links of the installed app, e.g. sign-in callbacks, would open this test build
+     if (isTestRun) return
++    // The snap's desktop entry declares the URL schemes
++    if (isSnap) return
+ 
+     const protocols = [LEGACY_APP_PROTOCOL, APP_PROTOCOL]
+ 
+diff --git a/apps/desktop/layer/main/src/menu.ts b/apps/desktop/layer/main/src/menu.ts
+index caef498..e98d3c3 100644
+--- a/apps/desktop/layer/main/src/menu.ts
++++ b/apps/desktop/layer/main/src/menu.ts
+@@ -4,7 +4,7 @@ import { name } from "@pkg"
+ import type { BrowserWindow, MenuItem, MenuItemConstructorOptions } from "electron"
+ import { Menu } from "electron"
+ 
+-import { isMacOS, isMAS } from "./env"
++import { isMacOS, isMAS, isSnap } from "./env"
+ import { clearAllDataAndConfirm } from "./lib/cleaner"
+ import { t } from "./lib/i18n"
+ import { revealLogFile } from "./logger"
+@@ -177,7 +177,7 @@ export const registerAppMenu = () => {
+             await revealLogFile()
+           },
+         },
+-        ...(!isMAS
++        ...(!isMAS && !isSnap
+           ? [
+               {
+                 label: t("menu.checkForUpdates"),
+diff --git a/apps/desktop/layer/main/src/updater/configs.ts b/apps/desktop/layer/main/src/updater/configs.ts
+index 616b682..186fd27 100644
+--- a/apps/desktop/layer/main/src/updater/configs.ts
++++ b/apps/desktop/layer/main/src/updater/configs.ts
+@@ -1,5 +1,7 @@
+ import { DEV, MICROSOFT_STORE_BUILD, MODE, ModeEnum } from "@follow/shared/constants"
+ 
++import { isSnap } from "../env"
++
+ const isStoreDistribution = Boolean(process.mas || MICROSOFT_STORE_BUILD)
+ 
+ export const appUpdaterConfig = {
+@@ -8,7 +10,7 @@ export const appUpdaterConfig = {
+   enableCoreUpdate: !isStoreDistribution,
+ 
+   // Disable app update will also disable renderer hot update and core update
+-  enableAppUpdate: true,
++  enableAppUpdate: !isSnap,
+   enableDistributionStoreUpdate: isStoreDistribution,
+ 
+   app: {

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Folo
+GenericName=RSS Reader
+Comment=Follow feeds, newsletters, podcasts and social media in one timeline
+Exec=folo %U
+Icon=${SNAP}/meta/gui/folo.png
+Terminal=false
+Categories=Network;News;Feed;
+Keywords=rss;atom;feed;reader;news;podcast;
+MimeType=x-scheme-handler/folo;x-scheme-handler/follow;
+StartupNotify=true
+StartupWMClass=Folo
