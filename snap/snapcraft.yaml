@@ -79,7 +79,7 @@ parts:
       pnpm install --frozen-lockfile
 
       cd apps/desktop
-      # Wayland app ID and window class matching the snap's desktop entry
+      # Match the Wayland app ID to the installed desktop entry.
       node -e '
         const fs = require("node:fs");
         const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
